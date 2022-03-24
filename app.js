@@ -1,8 +1,6 @@
 
 var iWaitSecs = 500;
 
-main();
-
 function existsByDesc(sDesc) {
     return desc(sDesc).exists();
 }
@@ -59,6 +57,54 @@ function goDownBySwipe() {
     }
 }
 
+// ----------
+// 特定元素
+// ----------
+function getHome() {
+    let oUI = descContains('動態消息，');
+    if (oUI.exists()) {
+        return oUI.findOne(iWaitSecs);
+    }
+    return false;
+}
+function getLogoutBtn() {
+    let logoutText = '登出';
+    let oUI = desc(logoutText).text(logoutText);
+    if (oUI.exists()) {
+        return oUI.findOne(iWaitSecs);
+    }
+    return false;
+}
+function getLoginOtherAccountBtn() {
+    let loginText = '登入其他帳號';
+    let oUI = text(loginText);
+    if (oUI.exists()) {
+        return oUI.findOne(iWaitSecs);
+    }
+    return false;
+}
+function getLoginAccountInput() {
+    let oUI = className('android.widget.EditText').desc('用戶名稱');
+    if (oUI.exists()) {
+        return oUI.findOne(iWaitSecs);
+    }
+    return false;
+}
+function getLoginPasswordInput() {
+    let oUI = className('android.widget.EditText').desc('密碼');
+    if (oUI.exists()) {
+        return oUI.findOne(iWaitSecs);
+    }
+    return false;
+}
+function getLoginBtn() {
+    let loginText = '登入';
+    let oUI = text(loginText).desc(loginText);
+    if (oUI.exists()) {
+        return oUI.findOne(iWaitSecs);
+    }
+    return false;
+}
 
 // ----------
 // 跳轉頁面
@@ -74,8 +120,11 @@ function findFanPageByName(fpName) {
 // 回到首頁
 function goHome() {
     // 先點兩次首頁按鈕回到最上層，確保有貼文輸入框可按
-    let oUI0 = getUIByDescContains('動態消息，');
-    oUI0.clickCenter();
+    while (false === getHome()) {
+        sleep(200);
+        log('--- wait for: Home ---');
+    }
+    getHome().clickCenter();
     sleep(500);
     swipeUp();
     sleep(500)
@@ -108,7 +157,9 @@ function goFanPage(sFanPageName) {
     findFanPageByName(sFanPageName).clickCenter();
 }
 
+// ----------
 // 貼文
+// ----------
 function postArticle(article) {
 
     goHome();
@@ -166,31 +217,159 @@ function postArticle(article) {
     }
     return result;
 }
-
 // 取得隨機文字
 function callRandomArticle() {
     let resp = http.get('https://v1.hitokoto.cn');
     return resp.body.json();
 }
 
+// ----------
+// 登出
+// ----------
+function funcLogout() {
+
+    // 如果頁面停留的位置有上一頁可以按
+    while (goBack()) {
+        sleep(500);
+    }
+    goHome();
+    sleep(500);
+
+    let step = 1;
+    let result = true;
+    while (result) {
+        log(step);
+        switch (step) {
+            case 1:
+                log('--- click 功能表 ---');
+                let oUI1 = getUIByDescContains('功能表，');
+                if (oUI1) {
+                    oUI1.click();
+                    result = result && true;
+                    step++;
+                }
+                break;
+            case 2:
+                sleep(1000);
+
+                // 等待登出按鈕出現
+                while (false === getLogoutBtn()) {
+                    log('--- swipe & wait for btn: 登出 ---');
+                    swipeDown();
+                }
+
+                // 等待 x 秒至 toast 消失
+                sleep(5 * 1000);
+                log('--- click logout btn ---');
+                getLogoutBtn().clickCenter();
+
+                result = result && true;
+                step++;
+                break;
+            default:
+                log('--- logout finish ---');
+                result = false;
+        }
+    }
+    return result;
+}
+
+// ----------
+// 登入
+// ----------
+function funcLogin(sAccount, sPassword) {
+
+    // 如果頁面停留的位置有上一頁可以按
+    while (goBack()) {
+        sleep(500);
+    }
+    // goHome();
+    sleep(500);
+
+    let step = 1;
+    let result = true;
+    while (result) {
+        log(step);
+        switch (step) {
+            case 1: // 等待且找到【登入其他帳號】按鈕並按下
+
+                while (false === getLoginOtherAccountBtn()) {
+                    sleep(500);
+                    log('--- wait for btn: 登入其他帳號 ---');
+                }
+
+                getLoginOtherAccountBtn().clickCenter();
+
+                result = result && true;
+                step++;
+                break;
+            case 2: // 先隨便點一個地方，取消掉彈窗
+                sleep(1500);
+
+                // 可能會有奇怪的彈窗
+                click(500, 500);
+                result = result && true;
+                step++;
+                break;
+            case 3: // 輸入帳號
+                sleep(1000);
+                if (false !== getLoginAccountInput()) {
+                    getLoginAccountInput().setText(sAccount);
+                    result = result && true;
+                    step++;
+                }
+                break;
+            case 4: // 輸入密碼
+                if (false !== getLoginPasswordInput()) {
+                    getLoginPasswordInput().setText(sPassword);
+                    result = result && true;
+                    step++;
+                }
+                break;
+            case 5: // 按下【登入】按鈕
+                if (false !== getLoginBtn()) {
+                    getLoginBtn().clickCenter();
+                    result = result && true;
+                    step++;
+                }
+                break;
+            default:
+                result = false;
+        }
+    }
+    return result;
+}
+
 // 執行區塊
-function main() {
+function main(run) {
 
     // 如果頁面停留的位置有上一頁可以按
     while (goBack()) {
         sleep(500);
     }
 
-    let run = 2;
     switch (run) {
-        case 1: // 隨機發文
+        case 10: // 登入
+            // 之後可以用打後台 API 配置要登入的帳號密碼
+            var testData = require('./test.data.js');
+            funcLogin(testData.users[0].account, testData.users[0].password);
+            break;
+        case 20: // 登出
+            funcLogout();
+            break;
+        case 30: // 隨機發文
             let oRandArticle = callRandomArticle();
             postArticle(oRandArticle.hitokoto);
             break;
-        case 2: // 搜尋並進入粉絲專頁
+        case 99: // 搜尋並進入粉絲專頁
             goSearchBar();
             goFanPage('潮小糜');
             break;
     }
 
 }
+
+
+main(10);
+main(30);
+main(20);
